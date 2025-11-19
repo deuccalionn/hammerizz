@@ -9,117 +9,90 @@ st.set_page_config(
     layout="centered"
 )
 
-# --- TASARIM (KARANLIK MOD & MODERN ARAYÜZ) ---
+# --- TASARIM ---
 st.markdown("""
 <style>
-    /* Arka planı koyu yapalım */
     .stApp {background-color: #0E1117;}
-    
-    /* Başlık Rengi */
-    h1 {color: #FF4B4B; text-align: center; font-family: 'Helvetica', sans-serif;}
-    
-    /* Alt Başlık */
+    h1 {color: #FF4B4B; text-align: center;}
     .stMarkdown p {text-align: center; color: #FAFAFA;}
-    
-    /* Buton Tasarımı (Büyük ve Çekici) */
     .stButton button {
         width: 100%;
         border-radius: 25px;
         background: linear-gradient(45deg, #FF4B4B, #FF914D);
         color: white;
         font-weight: bold;
-        font-size: 18px;
         padding: 12px;
         border: none;
-        box-shadow: 0 4px 15px rgba(255, 75, 75, 0.4);
-    }
-    .stButton button:hover {
-        background: linear-gradient(45deg, #FF914D, #FF4B4B);
-    }
-
-    /* Cevap Kutusu Tasarımı */
-    .reportview-container .main .block-container{
-        padding-top: 2rem;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# --- GİZLİ ANAHTAR KONTROLÜ ---
+# --- API ANAHTARI ---
 try:
     if "GOOGLE_API_KEY" in st.secrets:
         api_key = st.secrets["GOOGLE_API_KEY"]
     else:
-        st.error("⚠️ API Anahtarı bulunamadı. Lütfen Streamlit 'Secrets' ayarlarını yapın.")
+        st.error("⚠️ API Anahtarı yok! Secrets ayarını yapın.")
         st.stop()
 except:
     st.stop()
 
+# --- MODELİ OTOMATİK BUL (HATA ÖNLEYİCİ) ---
+def get_vision_model():
+    genai.configure(api_key=api_key)
+    # Sistemdeki modelleri tara
+    for m in genai.list_models():
+        if 'generateContent' in m.supported_generation_methods:
+            # Experimental (ücretli/kotasız) olmayan ve 1.5 olanı bul
+            if 'exp' not in m.name and '1.5' in m.name:
+                return m.name
+    # Bulamazsa varsayılanı döndür
+    return 'gemini-1.5-flash'
+
 # --- ARAYÜZ ---
 st.title("🔥 RizzMaster")
-st.write("Flört uygulamasında veya WhatsApp'ta tıkandın mı? Ekran görüntüsünü at, **Koç** senin yerine cevaplasın.")
+st.write("Sohbet tıkandı mı? SS'i at, Koç devreye girsin.")
 
-st.markdown("---")
-
-# Dosya Yükleme
-uploaded_file = st.file_uploader("Sohbet SS'ini Buraya Bırak", type=["jpg", "png", "jpeg"], label_visibility="collapsed")
+uploaded_file = st.file_uploader("Ekran Görüntüsü Yükle", type=["jpg", "png", "jpeg"], label_visibility="collapsed")
 
 if uploaded_file:
-    # Resmi ortalayarak göster
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.image(uploaded_file, caption="Analiz Ediliyor...", use_container_width=True)
+    st.image(uploaded_file, caption="Görüntü Alındı", use_container_width=True)
     
-    st.write("") # Boşluk
-    
-    # Analiz Butonu
     if st.button("🚀 KOÇA SOR (ANALİZ ET)"):
         try:
-            genai.configure(api_key=api_key)
-            # Vision destekli en hızlı model
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            target_model = get_vision_model() # Otomatik model seçimi
+            model = genai.GenerativeModel(target_model)
             
-            with st.spinner('Koç karşı tarafın psikolojisini çözüyor... 🧠'):
+            with st.spinner(f'Koç analiz ediyor... (Model: {target_model})'):
                 image = Image.open(uploaded_file)
                 
-                # --- SİHİRLİ PROMPT (RED PILL / FLÖRT KOÇU) ---
                 prompt = """
-                Sen dünyanın en iyi 'Dating Coach'u ve İletişim Uzmanısın (Red Pill ve Maskülenite farkındalığına sahip).
-                Kullanıcı sana bir flört uygulaması (Tinder/Bumble) veya WhatsApp sohbet ekran görüntüsü attı.
+                Sen dünyanın en iyi Dating Coach'u ve İletişim Uzmanısın (Red Pill farkındalığına sahip).
+                Kullanıcı sana bir flört uygulaması veya WhatsApp sohbet ekran görüntüsü attı.
                 
                 GÖREVLERİN:
-                1. 🕵️‍♂️ DURUM ANALİZİ: Karşı tarafın ilgisi yüksek mi düşük mü? Kullanıcı hata yapmış mı (fazla 'needy'/muhtaç mı)? Kısa ve net, lafı dolandırmadan söyle.
-                2. 🎯 TAKTİK: Sohbeti kurtarmak veya bir sonraki aşamaya (buluşmaya) taşımak için 3 FARKLI CEVAP ÖNERİSİ ver.
+                1. DURUM ANALİZİ: Karşı tarafın ilgisi nasıl? Kullanıcı hata yapmış mı? (Kısa, sert ve gerçekçi ol).
+                2. TAKTİK: Sohbeti kurtarmak için 3 FARKLI CEVAP ÖNERİSİ ver.
                 
                 ÇIKTI FORMATI:
-                
                 ### 🧠 KOÇUN ANALİZİ
-                (Buraya analizini yaz. Sert ama eğitici ol.)
-                
+                ...
                 ### 🔥 CEVAP SEÇENEKLERİ
+                **1. ALFA (Cesur):** ...
+                **2. EĞLENCELİ (Troll):** ...
+                **3. GİZEMLİ:** ...
                 
-                **1. ALFA / ÖZGÜVENLİ (Risk Al):**
-                (Direkt ve cesur bir cevap)
-                
-                **2. EĞLENCELİ / TROLL (Güldür):**
-                (Espri içeren, ortamı yumuşatan cevap)
-                
-                **3. GİZEMLİ (Merak Uyandır):**
-                (Kısa ve düşündüren cevap)
-                
-                **⚠️ GÜNLÜK GÖREV:** (Kullanıcının özgüvenini artıracak ufak bir görev ver. Örn: Telefonu 1 saat uçak moduna al.)
+                **⚠️ GÜNLÜK GÖREV:** ...
                 """
                 
                 response = model.generate_content([prompt, image])
                 
-                # Sonucu Şık Bir Kutuda Göster
                 st.markdown("---")
                 st.success("Analiz Tamamlandı!")
                 st.markdown(response.text)
                 
         except Exception as e:
-            st.error(f"Bir hata oluştu: {e}")
-            st.info("İpucu: Resim formatı desteklenmiyor olabilir veya API kotası dolmuş olabilir.")
-
+            st.error(f"Hata: {e}")
+            st.info("Streamlit sayfasını yenileyip (Reboot) tekrar deneyin.")
 else:
-    # Boşken Kullanıcıyı Yönlendir
-    st.info("👆 Başlamak için yukarıya tıkla ve ekran görüntüsünü seç.")
+    st.info("👆 Ekran görüntüsü yükleyerek başla.")
